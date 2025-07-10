@@ -1,0 +1,118 @@
+import re
+import gradio as gr
+
+# Global state
+language = None
+chat_history = []
+
+# Language switcher
+def t(en, hi):
+    return hi if language == "hi" else en
+
+# Simple matchers
+def is_positive(text):
+    words = ["yes", "haan", "sure", "okay", "ok", "of course", "batao", "definitely", "absolutely", "kyun nahi", "haan ji", "ha"]
+    return any(re.search(rf"\b{w}\b", text.lower()) for w in words)
+
+def is_negative(text):
+    words = ["no", "nahi", "not interested", "nah", "nope", "leave it", "na"]
+    return any(re.search(rf"\b{w}\b", text.lower()) for w in words)
+
+# Main logic
+def admission_chat(user_input):
+    global language, chat_history
+    user_input = user_input.strip()
+
+    # Step 0: Set language
+    if language is None:
+        language = "hi" if "hindi" in user_input.lower() else "en"
+        reply = t(
+            "Language set to English. Are you interested in B.Sc Nursing admission?",
+            "भाषा हिंदी सेट की गई है। क्या आप B.Sc नर्सिंग में प्रवेश लेना चाहते हैं?"
+        )
+        return log(user_input, reply)
+
+    # Step 1: Admission interest
+    if len(chat_history) == 2:
+        if is_negative(user_input):
+            return log(user_input, t("No problem. Reach out anytime!", "कोई बात नहीं! भविष्य में संपर्क करें।"))
+        return log(user_input, t("Did you have Biology in 12th grade?", "क्या आपने 12वीं में बायोलॉजी लिया था?"))
+
+    # Step 2: Check eligibility
+    if len(chat_history) == 4:
+        if is_negative(user_input) or re.search(r"\b(physics|maths|commerce|arts|other)\b", user_input.lower()):
+            reply = t(
+                "Sorry, Biology in 12th is required. Want info about other programs?",
+                "माफ़ कीजिए, 12वीं में बायोलॉजी जरूरी है। क्या आप अन्य कोर्स जानना चाहेंगे?"
+            )
+            return log(user_input, reply)
+        return log(user_input, t("Great! Would you like to know more about the B.Sc Nursing program?",
+                                 "क्या आप B.Sc नर्सिंग प्रोग्राम के बारे में जानना चाहेंगे?"))
+
+    # Steps: Program Details
+    steps = [
+        (t("It’s a 4-year course with practical hospital training.", "यह 4-वर्षीय कोर्स है जिसमें अस्पताल प्रशिक्षण शामिल है।"),
+         t("Would you like to know about the fee structure?", "क्या आप फीस की जानकारी चाहते हैं?")),
+
+        (t("Fee Details:<br>- Tuition: ₹60,000<br>- Bus: ₹10,000<br>- Total: ₹70,000 (Installments: ₹30k, ₹20k, ₹20k)",
+           "फीस विवरण:<br>- ट्यूशन: ₹60,000<br>- बस: ₹10,000<br>- कुल: ₹70,000 (किस्त: ₹30k, ₹20k, ₹20k)"),
+         t("Want to know about hostel & facilities?", "क्या आप हॉस्टल और सुविधाएं जानना चाहेंगे?")),
+
+        (t("Hostel:<br>- 24/7 water, power<br>- CCTV, Warden<br>Training:<br>- Real patient hospital training",
+           "हॉस्टल:<br>- 24/7 पानी, बिजली<br>- CCTV, वार्डन<br>प्रशिक्षण:<br>- अस्पताल में असली मरीजों के साथ"),
+         t("Want to know the college location?", "क्या आप कॉलेज का स्थान जानना चाहेंगे?")),
+
+        (t("College is in Delhi, near top hospitals.", "कॉलेज दिल्ली में है, प्रमुख अस्पतालों के पास।"),
+         t("Want to know about recognition?", "क्या आप मान्यता के बारे में जानना चाहेंगे?")),
+
+        (t("Approved by Indian Nursing Council (INC), Delhi.", "भारतीय नर्सिंग परिषद (INC), दिल्ली द्वारा मान्यता प्राप्त।"),
+         t("Want to know training hospital names?", "क्या आप ट्रेनिंग अस्पतालों के नाम जानना चाहेंगे?")),
+
+        (t("Training at:<br>- Backundpur Hospital<br>- Chartha Regional<br>- Ranchi Neurosurgery<br>- CHCs",
+           "प्रशिक्षण:<br>- बकुंदपुर अस्पताल<br>- चार्था क्षेत्रीय<br>- रांची न्यूरोसर्जरी<br>- सामुदायिक केंद्र"),
+         t("Want to know about scholarships?", "क्या आप छात्रवृत्ति के बारे में जानना चाहेंगे?")),
+
+        (t("Scholarships:<br>- Govt Post-Matric: ₹18k–₹23k<br>- Labour Ministry: ₹40k–₹48k",
+           "छात्रवृत्तियाँ:<br>- पोस्ट-मैट्रिक: ₹18k–₹23k<br>- श्रम मंत्रालय: ₹40k–₹48k"),
+         t("Want to know about total seats?", "क्या आप कुल सीटें जानना चाहेंगे?")),
+
+        (t("Total Seats: 60", "कुल सीटें: 60"),
+         t("Want to review eligibility again?", "क्या आप पात्रता दोबारा जानना चाहेंगे?")),
+
+        (t("Eligibility:<br>- Biology in 12th<br>- PNT Exam<br>- Age: 17–35",
+           "पात्रता:<br>- 12वीं में बायोलॉजी<br>- PNT परीक्षा<br>- उम्र: 17–35"),
+         t("Want to apply or know next steps?", "क्या आप आवेदन या अगले चरण जानना चाहेंगे?")),
+
+        (t("You can apply online or visit the college.", "आप ऑनलाइन आवेदन करें या कॉलेज आएं।"),
+         t("Thanks for chatting! All the best!", "बातचीत के लिए धन्यवाद! शुभकामनाएं!"))
+    ]
+
+    step = (len(chat_history) - 4) // 2
+    if step < len(steps):
+        if is_positive(user_input):
+            content, next_q = steps[step]
+            return log(user_input, f"{content}<br><br>{next_q}")
+        return log(user_input, t("Okay. Let me know if you need anything else.",
+                                 "ठीक है। कुछ और चाहिए तो बताएं।"))
+    return log(user_input, t("Conversation completed.", "बातचीत समाप्त हुई।"))
+
+# Helper: Log and format history
+def log(user_msg, bot_msg):
+    chat_history.append((user_msg))
+    chat_history.append(( bot_msg))
+    return "<br><br>".join([
+        f"<b>User:</b> {u}<br><b>Bot:</b> {b}" for u, b in zip(chat_history[::2], chat_history[1::2])
+    ])
+
+# Gradio UI
+with gr.Blocks() as demo:
+    gr.Markdown("## B.Sc Nursing Admission Assistant Chatbot (English / हिंदी)")
+    output = gr.HTML()
+    input_box = gr.Textbox(label="Type your message here")
+    send = gr.Button("Send")
+
+    send.click(fn=admission_chat, inputs=[input_box], outputs=[output])
+    input_box.submit(fn=admission_chat, inputs=[input_box], outputs=[output])
+
+# Run the app
+demo.launch()
